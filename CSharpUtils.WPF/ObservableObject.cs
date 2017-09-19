@@ -11,13 +11,13 @@ namespace CSharpUtils.WPF
 {
     public class ObservableObject : INotifyPropertyChanged
     {
-        public event PropertyChangedEventHandler PropertyChanged;
-
         protected PropertyChangedEventHandler PropertyChangedHandler => PropertyChanged;
 
-        public event PropertyChangingEventHandler PropertyChanging;
-
         protected PropertyChangingEventHandler PropertyChangingHandler => PropertyChanging;
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        public event PropertyChangingEventHandler PropertyChanging;
 
         [Conditional("DEBUG")]
         [DebuggerStepThrough]
@@ -32,11 +32,9 @@ namespace CSharpUtils.WPF
                 if (descriptor != null)
                 {
                     if (descriptor.GetProperties()
-                        .Cast<PropertyDescriptor>()
-                        .Any(property => property.Name == propertyName))
-                    {
+                       .Cast<PropertyDescriptor>()
+                       .Any(property => property.Name == propertyName))
                         return;
-                    }
                 }
 
                 throw new ArgumentException("Property not found", propertyName);
@@ -45,7 +43,7 @@ namespace CSharpUtils.WPF
 
         [SuppressMessage("Microsoft.Design", "CA1030:UseEventsWhereAppropriate", Justification = "This cannot be an event")]
         public virtual void RaisePropertyChanging(
-    string propertyName)
+            string propertyName)
 
         {
             VerifyPropertyName(propertyName);
@@ -55,7 +53,7 @@ namespace CSharpUtils.WPF
 
         [SuppressMessage("Microsoft.Design", "CA1030:UseEventsWhereAppropriate", Justification = "This cannot be an event")]
         public virtual void RaisePropertyChanged(
-    string propertyName)
+            string propertyName)
 
         {
             VerifyPropertyName(propertyName);
@@ -64,7 +62,9 @@ namespace CSharpUtils.WPF
         }
 
         [SuppressMessage("Microsoft.Design", "CA1030:UseEventsWhereAppropriate", Justification = "This cannot be an event")]
-        [SuppressMessage("Microsoft.Design", "CA1006:GenericMethodsShouldProvideTypeParameter", Justification = "This syntax is more convenient than other alternatives.")]
+        [SuppressMessage(
+            "Microsoft.Design", "CA1006:GenericMethodsShouldProvideTypeParameter", Justification =
+                "This syntax is more convenient than other alternatives.")]
         public virtual void RaisePropertyChanging<T>(Expression<Func<T>> propertyExpression)
         {
             PropertyChangingEventHandler handler = PropertyChanging;
@@ -76,7 +76,9 @@ namespace CSharpUtils.WPF
         }
 
         [SuppressMessage("Microsoft.Design", "CA1030:UseEventsWhereAppropriate", Justification = "This cannot be an event")]
-        [SuppressMessage("Microsoft.Design", "CA1006:GenericMethodsShouldProvideTypeParameter", Justification = "This syntax is more convenient than other alternatives.")]
+        [SuppressMessage(
+            "Microsoft.Design", "CA1006:GenericMethodsShouldProvideTypeParameter", Justification =
+                "This syntax is more convenient than other alternatives.")]
         public virtual void RaisePropertyChanged<T>(Expression<Func<T>> propertyExpression)
         {
             PropertyChangedEventHandler handler = PropertyChanged;
@@ -86,49 +88,47 @@ namespace CSharpUtils.WPF
                 string propertyName = GetPropertyName(propertyExpression);
 
                 if (!string.IsNullOrEmpty(propertyName))
-                {
                     RaisePropertyChanged(propertyName);
-                }
             }
         }
 
-        [SuppressMessage("Microsoft.Design", "CA1011:ConsiderPassingBaseTypesAsParameters", Justification = "This syntax is more convenient than the alternatives."),
- SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "This syntax is more convenient than the alternatives.")]
+        [SuppressMessage(
+            "Microsoft.Design", "CA1011:ConsiderPassingBaseTypesAsParameters", Justification =
+                "This syntax is more convenient than the alternatives.")]
+        [SuppressMessage(
+            "Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification =
+                "This syntax is more convenient than the alternatives.")]
         protected static string GetPropertyName<T>(Expression<Func<T>> propertyExpression)
         {
             if (propertyExpression == null)
-            {
                 throw new ArgumentNullException(nameof(propertyExpression));
-            }
 
-            MemberExpression body = propertyExpression.Body as MemberExpression;
+            var body = propertyExpression.Body as MemberExpression;
 
             if (body == null)
-            {
                 throw new ArgumentException("Invalid argument", nameof(propertyExpression));
-            }
 
-            PropertyInfo property = body.Member as PropertyInfo;
+            var property = body.Member as PropertyInfo;
 
             if (property == null)
-            {
                 throw new ArgumentException("Argument is not a property", nameof(propertyExpression));
-            }
 
             return property.Name;
         }
 
-        [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "This syntax is more convenient than the alternatives."),
- SuppressMessage("Microsoft.Design", "CA1045:DoNotPassTypesByReference", MessageId = "1#", Justification = "This syntax is more convenient than the alternatives.")]
+        [SuppressMessage(
+            "Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification =
+                "This syntax is more convenient than the alternatives.")]
+        [SuppressMessage(
+            "Microsoft.Design", "CA1045:DoNotPassTypesByReference", MessageId = "1#",
+            Justification = "This syntax is more convenient than the alternatives.")]
         protected bool Set<T>(
-    Expression<Func<T>> propertyExpression,
-    ref T field,
-    T newValue)
+            Expression<Func<T>> propertyExpression,
+            ref T field,
+            T newValue)
         {
             if (EqualityComparer<T>.Default.Equals(field, newValue))
-            {
                 return false;
-            }
 
             RaisePropertyChanging(propertyExpression);
             field = newValue;
@@ -136,16 +136,16 @@ namespace CSharpUtils.WPF
             return true;
         }
 
-        [SuppressMessage("Microsoft.Design", "CA1045:DoNotPassTypesByReference", MessageId = "1#", Justification = "This syntax is more convenient than the alternatives.")]
+        [SuppressMessage(
+            "Microsoft.Design", "CA1045:DoNotPassTypesByReference", MessageId = "1#",
+            Justification = "This syntax is more convenient than the alternatives.")]
         protected bool Set<T>(
-    string propertyName,
-    ref T field,
-    T newValue)
+            string propertyName,
+            ref T field,
+            T newValue)
         {
             if (EqualityComparer<T>.Default.Equals(field, newValue))
-            {
                 return false;
-            }
 
             RaisePropertyChanging(propertyName);
             field = newValue;

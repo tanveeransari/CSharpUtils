@@ -8,76 +8,31 @@ namespace CSharpUtils.WPF.Helpers
     {
         private Func<TResult> _staticFunc;
 
-        protected MethodInfo Method
-        {
-            get;
-            set;
-        }
-
-        public bool IsStatic
-        {
-            get
-            {
-
-                return _staticFunc != null;
-            }
-        }
-
-        public virtual string MethodName
-        {
-            get
-            {
-                if (_staticFunc != null)
-                {
-                    return _staticFunc.Method.Name;
-                }
-
-                return Method.Name;
-
-            }
-        }
-
-        protected WeakReference FuncReference
-        {
-            get;
-            set;
-        }
-
-        protected WeakReference Reference
-        {
-            get;
-            set;
-        }
-
         protected WeakFunc()
         {
         }
 
         public WeakFunc(Func<TResult> func)
-    : this(func == null ? null : func.Target, func)
+            : this(func == null ? null : func.Target, func)
         {
         }
 
         [SuppressMessage(
-    "Microsoft.Design",
-    "CA1062:Validate arguments of public methods",
-    MessageId = "1",
-    Justification = "Method should fail with an exception if func is null.")]
+            "Microsoft.Design",
+            "CA1062:Validate arguments of public methods",
+            MessageId = "1",
+            Justification = "Method should fail with an exception if func is null.")]
         public WeakFunc(object target, Func<TResult> func)
         {
-
             if (func.Method.IsStatic)
             {
                 _staticFunc = func;
 
                 if (target != null)
-                {
                     Reference = new WeakReference(target);
-                }
 
                 return;
             }
-
 
             Method = func.Method;
             FuncReference = new WeakReference(func.Target);
@@ -85,22 +40,36 @@ namespace CSharpUtils.WPF.Helpers
             Reference = new WeakReference(target);
         }
 
+        protected MethodInfo Method { get; set; }
+
+        public bool IsStatic => _staticFunc != null;
+
+        public virtual string MethodName
+        {
+            get
+            {
+                if (_staticFunc != null)
+                    return _staticFunc.Method.Name;
+
+                return Method.Name;
+            }
+        }
+
+        protected WeakReference FuncReference { get; set; }
+
+        protected WeakReference Reference { get; set; }
+
         public virtual bool IsAlive
         {
             get
             {
-                if (_staticFunc == null
-                    && Reference == null)
-                {
+                if (_staticFunc == null && Reference == null)
                     return false;
-                }
 
                 if (_staticFunc != null)
                 {
                     if (Reference != null)
-                    {
                         return Reference.IsAlive;
-                    }
 
                     return true;
                 }
@@ -114,9 +83,7 @@ namespace CSharpUtils.WPF.Helpers
             get
             {
                 if (Reference == null)
-                {
                     return null;
-                }
 
                 return Reference.Target;
             }
@@ -127,9 +94,7 @@ namespace CSharpUtils.WPF.Helpers
             get
             {
                 if (FuncReference == null)
-                {
                     return null;
-                }
 
                 return FuncReference.Target;
             }
@@ -138,22 +103,14 @@ namespace CSharpUtils.WPF.Helpers
         public TResult Execute()
         {
             if (_staticFunc != null)
-            {
                 return _staticFunc();
-            }
 
-            var funcTarget = FuncTarget;
+            object funcTarget = FuncTarget;
 
             if (IsAlive)
             {
-                if (Method != null
-                    && FuncReference != null
-                    && funcTarget != null)
-                {
+                if (Method != null && FuncReference != null && funcTarget != null)
                     return (TResult)Method.Invoke(funcTarget, null);
-                }
-
-
             }
 
             return default(TResult);
@@ -165,7 +122,6 @@ namespace CSharpUtils.WPF.Helpers
             FuncReference = null;
             Method = null;
             _staticFunc = null;
-
         }
     }
 }

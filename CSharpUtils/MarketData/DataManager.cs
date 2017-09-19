@@ -30,18 +30,9 @@ namespace CSharpUtils.MarketData
         private IDictionary<Instrument, IList<TimeFrame>> _availableTimeFrames;
         private readonly Random _random = new Random();
 
-        public static DataManager Instance
-        {
-            get { return _instance; }
-        }
+        public static DataManager Instance => _instance;
 
-        private static string ResourceDirectory
-        {
-            get
-            {
-                return "Abt.Controls.SciChart.Example.Resources";
-            }
-        }
+        private static string ResourceDirectory => "Abt.Controls.SciChart.Example.Resources";
 
         public double GetGaussianRandomNumber(double mean, double stdDev)
         {
@@ -89,12 +80,12 @@ namespace CSharpUtils.MarketData
             for (int i = 0; i < pad; i++)
             {
                 double time = 10 * i / (double)pointCount;
-                doubleSeries.Add(new XYPoint { X = time });
+                doubleSeries.Add(new XyPoint { X = time });
             }
 
             for (int i = pad, j = 0; i < pointCount; i++, j++)
             {
-                var xyPoint = new XYPoint();
+                var xyPoint = new XyPoint();
 
                 double time = 10 * i / (double)pointCount;
                 double wn = 2 * Math.PI / (pointCount / (double)freq);
@@ -134,7 +125,7 @@ namespace CSharpUtils.MarketData
 
             for (int i = 0; i < xData.Length; i++)
             {
-                result.Add(new XYPoint { X = xData[i], Y = yData[i] });
+                result.Add(new XyPoint { X = xData[i], Y = yData[i] });
             }
 
             return result;
@@ -146,7 +137,7 @@ namespace CSharpUtils.MarketData
 
             for (int i = 0; i < count; i++)
             {
-                var xyPoint = new XYPoint();
+                var xyPoint = new XyPoint();
 
                 double time = 10 * i / (double)count;
                 double wn = 2 * Math.PI / (count / 10);
@@ -172,7 +163,7 @@ namespace CSharpUtils.MarketData
 
             for (int i = 0; i < count; i++)
             {
-                var xyPoint = new XYPoint();
+                var xyPoint = new XyPoint();
 
                 var time = i / (double)count;
                 xyPoint.X = time;
@@ -196,7 +187,7 @@ namespace CSharpUtils.MarketData
             const int COUNT = 1000;
             for (int i = 0; i < COUNT; i++)
             {
-                var xyPoint = new XYPoint();
+                var xyPoint = new XyPoint();
 
                 var time = i / (double)COUNT;
                 xyPoint.X = time;
@@ -329,14 +320,14 @@ namespace CSharpUtils.MarketData
                     double y6 = double.Parse(tokens[7], NumberFormatInfo.InvariantInfo);
                     double y7 = double.Parse(tokens[8], NumberFormatInfo.InvariantInfo);
 
-                    ch0.Add(new XYPoint { X = x, Y = y0 });
-                    ch1.Add(new XYPoint { X = x, Y = y1 });
-                    ch2.Add(new XYPoint { X = x, Y = y2 });
-                    ch3.Add(new XYPoint { X = x, Y = y3 });
-                    ch4.Add(new XYPoint { X = x, Y = y4 });
-                    ch5.Add(new XYPoint { X = x, Y = y5 });
-                    ch6.Add(new XYPoint { X = x, Y = y6 });
-                    ch7.Add(new XYPoint { X = x, Y = y7 });
+                    ch0.Add(new XyPoint { X = x, Y = y0 });
+                    ch1.Add(new XyPoint { X = x, Y = y1 });
+                    ch2.Add(new XyPoint { X = x, Y = y2 });
+                    ch3.Add(new XyPoint { X = x, Y = y3 });
+                    ch4.Add(new XyPoint { X = x, Y = y4 });
+                    ch5.Add(new XyPoint { X = x, Y = y5 });
+                    ch6.Add(new XyPoint { X = x, Y = y6 });
+                    ch7.Add(new XyPoint { X = x, Y = y7 });
 
                     line = streamReader.ReadLine();
                 }
@@ -428,7 +419,7 @@ namespace CSharpUtils.MarketData
             {
                 double x = i + 1;
                 double y = gradient * x + yIntercept;
-                doubleSeries.Add(new XYPoint { X = x, Y = y });
+                doubleSeries.Add(new XyPoint { X = x, Y = y });
             }
 
             return doubleSeries;
@@ -439,12 +430,12 @@ namespace CSharpUtils.MarketData
             var doubleSeries = new DoubleSeries(pointCount);
 
             double x = 0.00001;
-            const double fudgeFactor = 1.4;
+            const double FUDGE_FACTOR = 1.4;
             for (int i = 0; i < pointCount; i++)
             {
-                x *= fudgeFactor;
+                x *= FUDGE_FACTOR;
                 double y = Math.Pow((double)i + 1, power);
-                doubleSeries.Add(new XYPoint { X = x, Y = y });
+                doubleSeries.Add(new XyPoint { X = x, Y = y });
             }
 
             return doubleSeries;
@@ -459,7 +450,7 @@ namespace CSharpUtils.MarketData
             {
                 double x = Math.Sin(alpha * i * 0.1 + delta);
                 double y = Math.Sin(beta * i * 0.1);
-                doubleSeries.Add(new XYPoint { X = x, Y = y });
+                doubleSeries.Add(new XyPoint { X = x, Y = y });
             }
             return doubleSeries;
         }
@@ -479,7 +470,7 @@ namespace CSharpUtils.MarketData
 
                 double x = Math.Sin(t) * multiplier;
                 double y = Math.Cos(t) * multiplier;
-                doubleSeries.Add(new XYPoint { X = x, Y = y });
+                doubleSeries.Add(new XyPoint { X = x, Y = y });
             }
             return doubleSeries;
         }
@@ -501,7 +492,7 @@ namespace CSharpUtils.MarketData
 
             for (int i = 0; i < pointCount; i++)
             {
-                doubleSeries.Add(new XYPoint { X = i, Y = offset + amplitude * Math.Sin(freq * i) });
+                doubleSeries.Add(new XyPoint { X = i, Y = offset + amplitude * Math.Sin(freq * i) });
             }
 
             return doubleSeries;
@@ -523,11 +514,11 @@ namespace CSharpUtils.MarketData
             double randomWalk = 0.0;
 
             // Note: Change the value below to increase or decrease the point count and trade frequency
-            const int Count = 1000;
-            const uint TradeFrequency = 14;
+            const int COUNT = 1000;
+            const uint TRADE_FREQUENCY = 14;
 
             // Generate the X,Y data with sequential dates on the X-Axis and slightly positively biased random walk on the Y-Axis
-            for (int i = 0; i < Count; i++)
+            for (int i = 0; i < COUNT; i++)
             {
                 randomWalk += (_random.NextDouble() - 0.498);
                 priceSeries.Add(new PriceBar(startDate.AddMinutes(i * 10), randomWalk, randomWalk, randomWalk, randomWalk, 0));
@@ -537,13 +528,13 @@ namespace CSharpUtils.MarketData
             // so it is always positive.
             double yOffset = -priceSeries.CloseData.Min() + _random.NextDouble();
 
-            for (int i = 0; i < Count; i++)
+            for (int i = 0; i < COUNT; i++)
             {
                 // Now update with the offset so it is never negative
                 priceSeries[i].Close += yOffset;
 
                 // Every N'th tick create a random trade
-                if (i % TradeFrequency == 0)
+                if (i % TRADE_FREQUENCY == 0)
                 {
                     var trade = new Trade
                     {
@@ -592,7 +583,7 @@ namespace CSharpUtils.MarketData
                 double cosX = Math.Cos(2 * Math.PI * i * 0.05);
                 x = xCentre + radius * sinX;
                 y = yCentre + radius * cosX;
-                doubleSeries.Add(new XYPoint { X = x, Y = y });
+                doubleSeries.Add(new XyPoint { X = x, Y = y });
                 radius += deltaRadius;
             }
             return doubleSeries;
@@ -605,7 +596,7 @@ namespace CSharpUtils.MarketData
             {
                 double x = GetGaussianRandomNumber(xCentre, deviation);
                 double y = GetGaussianRandomNumber(yCentre, deviation);
-                doubleSeries.Add(new XYPoint { X = x, Y = y });
+                doubleSeries.Add(new XyPoint { X = x, Y = y });
             }
             return doubleSeries;
         }

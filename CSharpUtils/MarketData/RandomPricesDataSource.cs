@@ -11,7 +11,7 @@ namespace CSharpUtils.MarketData
             public double Close;
         }
 
-        private const double Frequency = 1.1574074074074073E-05;
+        private const double FREQUENCY = 1.1574074074074073E-05;
         private readonly Random _random;
         private readonly int _candleIntervalMinutes;
         private readonly bool _simulateDateGap;
@@ -62,10 +62,7 @@ namespace CSharpUtils.MarketData
             _random = new Random(randomSeed);
         }
 
-        public bool IsRunning
-        {
-            get { return _timer.Enabled; }
-        }
+        public bool IsRunning => _timer.Enabled;
 
         public void StartGeneratePriceBars()
         {

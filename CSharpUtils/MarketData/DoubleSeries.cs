@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace CSharpUtils.MarketData
 {
-    public class DoubleSeries : List<XYPoint>
+    public class DoubleSeries : List<XyPoint>
     {
         public DoubleSeries()
         {

@@ -15,8 +15,9 @@ namespace CSharpUtils.WPF
     {
         private static bool? _isInDesignMode;
 
-        [SuppressMessage("Microsoft.Security", "CA2122:DoNotIndirectlyExposeMethodsWithLinkDemands", Justification =
-            "The security risk here is neglectible.")]
+        [SuppressMessage(
+            "Microsoft.Security", "CA2122:DoNotIndirectlyExposeMethodsWithLinkDemands", Justification =
+                "The security risk here is neglectible.")]
         public static bool IsInDesignModeStatic
         {
             get
@@ -34,15 +35,17 @@ namespace CSharpUtils.WPF
             }
         }
 
-        [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification =
-            "Non static member needed for data binding")]
+        [SuppressMessage(
+            "Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification =
+                "Non static member needed for data binding")]
         public bool IsInDesignMode => IsInDesignModeStatic;
 
         [SuppressMessage(
             "Microsoft.Design",
             "CA1026:DefaultParametersShouldNotBeUsed")]
-        [SuppressMessage("Microsoft.Design", "CA1030:UseEventsWhereAppropriate", Justification =
-            "This cannot be an event")]
+        [SuppressMessage(
+            "Microsoft.Design", "CA1030:UseEventsWhereAppropriate", Justification =
+                "This cannot be an event")]
         public virtual void RaisePropertyChanged<T>(
             string propertyName,
             T oldValue = default(T),
@@ -63,7 +66,8 @@ namespace CSharpUtils.WPF
             "Microsoft.Design",
             "CA1006:GenericMethodsShouldProvideTypeParameter",
             Justification = "This syntax is more convenient than the alternatives.")]
-        public virtual void RaisePropertyChanged<T>(Expression<Func<T>> propertyExpression, T oldValue, T newValue,
+        public virtual void RaisePropertyChanged<T>(
+            Expression<Func<T>> propertyExpression, T oldValue, T newValue,
             bool broadcast)
         {
             RaisePropertyChanged(propertyExpression);

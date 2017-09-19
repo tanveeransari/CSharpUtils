@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Windows.Media;
 using CSharpUtils.Common;
 
@@ -10,150 +12,66 @@ namespace CSharpUtils.MarketData
 {
     public interface IDataManager
     {
-        PriceSeries GetPriceData(string symbol, TimeFrame timeFrame);
-
-        DoubleSeries GetFourierSeries(double amplitude, double phaseShift, int count = 5000);
-
-        DoubleSeries GetSquirlyWave();
-
         IEnumerable<Instrument> AvailableInstruments { get; }
-
         IEnumerable<TimeFrame> GetAvailableTimeFrames(Instrument forInstrument);
+        DoubleSeries GetFourierSeries(double amplitude, double phaseShift, int count = 5000);
+        PriceSeries GetPriceData(string symbol, TimeFrame timeFrame);
+        DoubleSeries GetSquirlyWave();
     }
 
     public class DataManager : IDataManager
     {
-        private readonly IDictionary<string, PriceSeries> _dataSets = new Dictionary<string, PriceSeries>();
         private readonly List<DoubleSeries> _acousticPlotData = new List<DoubleSeries>();
-        private static readonly DataManager _instance = new DataManager();
+        private readonly IDictionary<string, PriceSeries> _dataSets = new Dictionary<string, PriceSeries>();
+        private readonly Random _random = new Random();
         private IList<Instrument> _availableInstruments;
         private IDictionary<Instrument, IList<TimeFrame>> _availableTimeFrames;
-        private readonly Random _random = new Random();
+        public static DataManager Instance { get; } = new DataManager();
 
-        public static DataManager Instance => _instance;
+        public IEnumerable<Instrument> AvailableInstruments
+        {
+            get
+            {
+                if (_availableInstruments == null)
+                    lock (typeof(DataManager))
+                    {
+                        if (_availableInstruments == null)
+                        {
+                            Assembly assembly = typeof(DataManager).Assembly;
+                            _availableInstruments = new List<Instrument>();
+
+                            foreach (string resourceString in assembly.GetManifestResourceNames())
+                                if (resourceString.Contains("_"))
+                                {
+                                    string instrumentString = GetSubstring(resourceString, ResourceDirectory + ".", "_");
+                                    Instrument instr = Instrument.Parse(instrumentString);
+                                    if (!_availableInstruments.Contains(instr))
+                                        _availableInstruments.Add(instr);
+                                }
+                        }
+                    }
+
+                return _availableInstruments;
+            }
+        }
 
         private static string ResourceDirectory => "Abt.Controls.SciChart.Example.Resources";
 
-        public double GetGaussianRandomNumber(double mean, double stdDev)
+        public IList<double> ComputeMovingAverage(IList<double> prices, int length)
         {
-            double u1 = _random.NextDouble(); //these are uniform(0,1) random doubles
-            double u2 = _random.NextDouble();
-            double randStdNormal = Math.Sqrt(-2.0 * Math.Log(u1)) *
-                         Math.Sin(2.0 * Math.PI * u2); //random normal(0,1)
-            double randNormal =
-                         mean + stdDev * randStdNormal; //random normal(mean,stdDev^2)
-            return randNormal;
-        }
-
-        public PriceSeries GetPriceData(string symbol, TimeFrame timeFrame)
-        {
-            return GetPriceData($"{symbol}_{timeFrame}");
-        }
-
-        public DoubleSeries GetDampedSinewave(double amplitude, double dampingFactor, int pointCount, int freq = 10)
-        {
-            return GetDampedSinewave(0, amplitude, 0.0, dampingFactor, pointCount, freq);
-        }
-
-        public DoubleSeries GetSinewave(double amplitude, double phase, int pointCount, int freq = 10)
-        {
-            return GetDampedSinewave(0, amplitude, phase, 0.0, pointCount, freq);
-        }
-
-        public DoubleSeries GetNoisySinewave(double amplitude, double phase, int pointCount, double noiseAmplitude)
-        {
-            var sinewave = GetSinewave(amplitude, phase, pointCount);
-
-            // Add some noise
-            for (int i = 0; i < pointCount; i++)
+            double[] result = new double[prices.Count];
+            for (int i = 0; i < prices.Count; i++)
             {
-                sinewave[i].Y += _random.NextDouble() * noiseAmplitude - noiseAmplitude * 0.5;
-            }
-
-            return sinewave;
-        }
-
-        public DoubleSeries GetDampedSinewave(int pad, double amplitude, double phase, double dampingFactor, int pointCount, int freq = 10)
-        {
-            var doubleSeries = new DoubleSeries();
-
-            for (int i = 0; i < pad; i++)
-            {
-                double time = 10 * i / (double)pointCount;
-                doubleSeries.Add(new XyPoint { X = time });
-            }
-
-            for (int i = pad, j = 0; i < pointCount; i++, j++)
-            {
-                var xyPoint = new XyPoint();
-
-                double time = 10 * i / (double)pointCount;
-                double wn = 2 * Math.PI / (pointCount / (double)freq);
-
-                xyPoint.X = time;
-                xyPoint.Y = amplitude * Math.Sin(j * wn + phase);
-                doubleSeries.Add(xyPoint);
-
-                amplitude *= (1.0 - dampingFactor);
-            }
-
-            return doubleSeries;
-        }
-
-        public DoubleSeries GetFourierSeriesZoomed(double amplitude, double phaseShift, double xStart, double xEnd, int count = 5000)
-        {
-            var data = GetFourierSeries(amplitude, phaseShift, count);
-
-            int index0 = 0;
-            int index1 = 0;
-            for (int i = 0; i < count; i++)
-            {
-                if (data.XData[i] > xStart && index0 == 0)
-                    index0 = i;
-
-                if (data.XData[i] > xEnd && index1 == 0)
+                if (i < length)
                 {
-                    index1 = i;
-                    break;
+                    result[i] = double.NaN;
+                    continue;
                 }
-            }
 
-            var result = new DoubleSeries();
-
-            var xData = data.XData.Skip(index0).Take(index1 - index0).ToArray();
-            var yData = data.YData.Skip(index0).Take(index1 - index0).ToArray();
-
-            for (int i = 0; i < xData.Length; i++)
-            {
-                result.Add(new XyPoint { X = xData[i], Y = yData[i] });
+                result[i] = AverageOf(prices, i - length, i);
             }
 
             return result;
-        }
-
-        public DoubleSeries GetFourierSeries(double amplitude, double phaseShift, int count = 5000)
-        {
-            var doubleSeries = new DoubleSeries();
-
-            for (int i = 0; i < count; i++)
-            {
-                var xyPoint = new XyPoint();
-
-                double time = 10 * i / (double)count;
-                double wn = 2 * Math.PI / (count / 10);
-
-                xyPoint.X = time;
-                xyPoint.Y = Math.PI * amplitude *
-                            (Math.Sin(i * wn + phaseShift) +
-                             0.33 * Math.Sin(i * 3 * wn + phaseShift) +
-                             0.20 * Math.Sin(i * 5 * wn + phaseShift) +
-                             0.14 * Math.Sin(i * 7 * wn + phaseShift) +
-                             0.11 * Math.Sin(i * 9 * wn + phaseShift) +
-                             0.09 * Math.Sin(i * 11 * wn + phaseShift));
-                doubleSeries.Add(xyPoint);
-            }
-
-            return doubleSeries;
         }
 
         public DoubleSeries GenerateEEG(int count, ref double startPhase, double phaseStep)
@@ -165,12 +83,12 @@ namespace CSharpUtils.MarketData
             {
                 var xyPoint = new XyPoint();
 
-                var time = i / (double)count;
+                double time = i / (double)count;
                 xyPoint.X = time;
                 //double mod = 0.2 * Math.Sin(startPhase);
                 xyPoint.Y = //mod * Math.Sin(startPhase / 4.9) +
-                             0.05 * (rand.NextDouble() - 0.5) +
-                             1.0;
+                    0.05 * (rand.NextDouble() - 0.5) +
+                    1.0;
 
                 doubleSeries.Add(xyPoint);
                 startPhase += phaseStep;
@@ -179,101 +97,22 @@ namespace CSharpUtils.MarketData
             return doubleSeries;
         }
 
-        public DoubleSeries GetSquirlyWave()
+        public DoubleSeries GenerateSpiral(double xCentre, double yCentre, double maxRadius, int count)
         {
             var doubleSeries = new DoubleSeries();
-            var rand = new Random((int)DateTime.Now.Ticks);
-
-            const int COUNT = 1000;
-            for (int i = 0; i < COUNT; i++)
+            double radius = 0;
+            double x, y;
+            double deltaRadius = maxRadius / count;
+            for (int i = 0; i < count; i++)
             {
-                var xyPoint = new XyPoint();
-
-                var time = i / (double)COUNT;
-                xyPoint.X = time;
-                xyPoint.Y = time * Math.Sin(2 * Math.PI * i / (double)COUNT) +
-                             0.2 * Math.Sin(2 * Math.PI * i / (COUNT / 7.9)) +
-                             0.05 * (rand.NextDouble() - 0.5) +
-                             1.0;
-
-                doubleSeries.Add(xyPoint);
+                double sinX = Math.Sin(2 * Math.PI * i * 0.05);
+                double cosX = Math.Cos(2 * Math.PI * i * 0.05);
+                x = xCentre + radius * sinX;
+                y = yCentre + radius * cosX;
+                doubleSeries.Add(new XyPoint { X = x, Y = y });
+                radius += deltaRadius;
             }
-
             return doubleSeries;
-        }
-
-        public IEnumerable<Instrument> AvailableInstruments
-        {
-            get
-            {
-                if (_availableInstruments == null)
-                {
-                    lock (typeof(DataManager))
-                    {
-                        if (_availableInstruments == null)
-                        {
-                            var assembly = typeof(DataManager).Assembly;
-                            _availableInstruments = new List<Instrument>();
-
-                            foreach (var resourceString in assembly.GetManifestResourceNames())
-                            {
-                                if (resourceString.Contains("_"))
-                                {
-                                    string instrumentString = GetSubstring(resourceString, ResourceDirectory + ".", "_");
-                                    var instr = Instrument.Parse(instrumentString);
-                                    if (!_availableInstruments.Contains(instr))
-                                    {
-                                        _availableInstruments.Add(instr);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                return _availableInstruments;
-            }
-        }
-
-        private string GetSubstring(string input, string before, string after)
-        {
-            int beforeIndex = string.IsNullOrEmpty(before) ? 0 : input.IndexOf(before) + before.Length;
-            int afterIndex = string.IsNullOrEmpty(after) ? input.Length : input.IndexOf(after) - beforeIndex;
-            return input.Substring(beforeIndex, afterIndex);
-        }
-
-        public IEnumerable<TimeFrame> GetAvailableTimeFrames(Instrument forInstrument)
-        {
-            if (_availableTimeFrames == null)
-            {
-                lock (typeof(DataManager))
-                {
-                    if (_availableTimeFrames == null)
-                    {
-                        // Initialise the Timeframe dictionary
-                        _availableTimeFrames = new Dictionary<Instrument, IList<TimeFrame>>();
-                        foreach (var instr in AvailableInstruments)
-                        {
-                            _availableTimeFrames[instr] = new List<TimeFrame>();
-                        }
-
-                        var assembly = typeof(DataManager).Assembly;
-
-                        foreach (var resourceString in assembly.GetManifestResourceNames())
-                        {
-                            if (resourceString.Contains("_"))
-                            {
-                                var instrument = Instrument.Parse(GetSubstring(resourceString, ResourceDirectory + ".", "_"));
-                                var timeframe = TimeFrame.Parse(GetSubstring(resourceString, "_", ".csv"));
-
-                                _availableTimeFrames[instrument].Add(timeframe);
-                            }
-                        }
-                    }
-                }
-            }
-
-            return _availableTimeFrames[forInstrument];
         }
 
         public DoubleSeries GetAcousticChannel(int channelNumber)
@@ -282,12 +121,10 @@ namespace CSharpUtils.MarketData
                 throw new InvalidOperationException("Only channels 0-7 allowed");
 
             if (_acousticPlotData.Count != 0)
-            {
                 return _acousticPlotData[channelNumber];
-            }
 
             // e.g. resource format: Abt.Controls.SciChart.Example.Resources.EURUSD_Daily.csv
-            var csvResource = $"{ResourceDirectory}.AcousticPlots.csv";
+            string csvResource = $"{ResourceDirectory}.AcousticPlots.csv";
 
             var ch0 = new DoubleSeries(100000);
             var ch1 = new DoubleSeries(100000);
@@ -298,8 +135,8 @@ namespace CSharpUtils.MarketData
             var ch6 = new DoubleSeries(100000);
             var ch7 = new DoubleSeries(100000);
 
-            var assembly = typeof(DataManager).Assembly;
-            using (var stream = assembly.GetManifestResourceStream(csvResource))
+            Assembly assembly = typeof(DataManager).Assembly;
+            using (Stream stream = assembly.GetManifestResourceStream(csvResource))
             using (var streamReader = new StreamReader(stream))
             {
                 string line = streamReader.ReadLine();
@@ -309,7 +146,7 @@ namespace CSharpUtils.MarketData
                     // Line Format:
                     // Date, Open, High, Low, Close, Volume
                     // 2007.07.02 03:30, 1.35310, 1.35310, 1.35280, 1.35310, 12
-                    var tokens = line.Split(',');
+                    string[] tokens = line.Split(',');
                     double x = double.Parse(tokens[0], NumberFormatInfo.InvariantInfo);
                     double y0 = double.Parse(tokens[1], NumberFormatInfo.InvariantInfo);
                     double y1 = double.Parse(tokens[2], NumberFormatInfo.InvariantInfo);
@@ -338,88 +175,93 @@ namespace CSharpUtils.MarketData
             return _acousticPlotData[channelNumber];
         }
 
-        public PriceSeries GetPriceData(string dataset)
+        public IEnumerable<TimeFrame> GetAvailableTimeFrames(Instrument forInstrument)
         {
-            if (_dataSets.ContainsKey(dataset))
-            {
-                return _dataSets[dataset];
-            }
-
-            // e.g. resource format: Abt.Controls.SciChart.Example.Resources.EURUSD_Daily.csv
-            var csvResource = $"{ResourceDirectory}.{Path.ChangeExtension(dataset, "csv")}";
-
-            var priceSeries = new PriceSeries
-            {
-                Symbol = dataset
-            };
-
-            var assembly = typeof(DataManager).Assembly;
-            // Debug.WriteLine(string.Join(", ", assembly.GetManifestResourceNames()));
-            using (var stream = assembly.GetManifestResourceStream(csvResource))
-            using (var streamReader = new StreamReader(stream))
-            {
-                string line = streamReader.ReadLine();
-                while (line != null)
+            if (_availableTimeFrames == null)
+                lock (typeof(DataManager))
                 {
-                    var priceBar = new PriceBar();
-                    // Line Format:
-                    // Date, Open, High, Low, Close, Volume
-                    // 2007.07.02 03:30, 1.35310, 1.35310, 1.35280, 1.35310, 12
-                    var tokens = line.Split(',');
-                    priceBar.DateTime = DateTime.Parse(tokens[0], DateTimeFormatInfo.InvariantInfo);
-                    priceBar.Open = double.Parse(tokens[1], NumberFormatInfo.InvariantInfo);
-                    priceBar.High = double.Parse(tokens[2], NumberFormatInfo.InvariantInfo);
-                    priceBar.Low = double.Parse(tokens[3], NumberFormatInfo.InvariantInfo);
-                    priceBar.Close = double.Parse(tokens[4], NumberFormatInfo.InvariantInfo);
-                    priceBar.Volume = long.Parse(tokens[5], NumberFormatInfo.InvariantInfo);
-                    priceSeries.Add(priceBar);
+                    if (_availableTimeFrames == null)
+                    {
+                        // Initialise the Timeframe dictionary
+                        _availableTimeFrames = new Dictionary<Instrument, IList<TimeFrame>>();
+                        foreach (Instrument instr in AvailableInstruments)
+                            _availableTimeFrames[instr] = new List<TimeFrame>();
 
-                    line = streamReader.ReadLine();
-                }
-            }
+                        Assembly assembly = typeof(DataManager).Assembly;
 
-            _dataSets.Add(dataset, priceSeries);
+                        foreach (string resourceString in assembly.GetManifestResourceNames())
+                            if (resourceString.Contains("_"))
+                            {
+                                Instrument instrument = Instrument.Parse(GetSubstring(resourceString, ResourceDirectory + ".", "_"));
+                                TimeFrame timeframe = TimeFrame.Parse(GetSubstring(resourceString, "_", ".csv"));
 
-            return priceSeries;
-        }
-
-        public IList<double> ComputeMovingAverage(IList<double> prices, int length)
-        {
-            double[] result = new double[prices.Count];
-            for (int i = 0; i < prices.Count; i++)
-            {
-                if (i < length)
-                {
-                    result[i] = double.NaN;
-                    continue;
+                                _availableTimeFrames[instrument].Add(timeframe);
+                            }
+                    }
                 }
 
-                result[i] = AverageOf(prices, i - length, i);
-            }
-
-            return result;
+            return _availableTimeFrames[forInstrument];
         }
 
-        private static double AverageOf(IList<double> prices, int from, int to)
+        public DoubleSeries GetButterflyCurve(int count = 2000)
         {
-            double result = 0.0;
-            for (int i = from; i < to; i++)
+            // From http://en.wikipedia.org/wiki/Butterfly_curve_%28transcendental%29
+            // x = sin(t) * (e^cos(t) - 2cos(4t) - sin^5(t/12))
+            // y = cos(t) * (e^cos(t) - 2cos(4t) - sin^5(t/12))
+            double temp = 0.01;
+            var doubleSeries = new DoubleSeries(count);
+            for (int i = 0; i < count; i++)
             {
-                result += prices[i];
-            }
+                double t = i * temp;
 
-            return result / (to - from);
-        }
+                double multiplier = Math.Pow(Math.E, Math.Cos(t)) - 2 * Math.Cos(4 * t) - Math.Pow(Math.Sin(t / 12), 5);
 
-        public DoubleSeries GetStraightLine(double gradient, double yIntercept, int pointCount)
-        {
-            var doubleSeries = new DoubleSeries(pointCount);
-
-            for (int i = 0; i <= pointCount; i++)
-            {
-                double x = i + 1;
-                double y = gradient * x + yIntercept;
+                double x = Math.Sin(t) * multiplier;
+                double y = Math.Cos(t) * multiplier;
                 doubleSeries.Add(new XyPoint { X = x, Y = y });
+            }
+            return doubleSeries;
+        }
+
+        public DoubleSeries GetClusteredPoints(double xCentre, double yCentre, double deviation, int count)
+        {
+            var doubleSeries = new DoubleSeries();
+            for (int i = 0; i < count; i++)
+            {
+                double x = GetGaussianRandomNumber(xCentre, deviation);
+                double y = GetGaussianRandomNumber(yCentre, deviation);
+                doubleSeries.Add(new XyPoint { X = x, Y = y });
+            }
+            return doubleSeries;
+        }
+
+        public DoubleSeries GetDampedSinewave(double amplitude, double dampingFactor, int pointCount, int freq = 10)
+        {
+            return GetDampedSinewave(0, amplitude, 0.0, dampingFactor, pointCount, freq);
+        }
+
+        public DoubleSeries GetDampedSinewave(int pad, double amplitude, double phase, double dampingFactor, int pointCount, int freq = 10)
+        {
+            var doubleSeries = new DoubleSeries();
+
+            for (int i = 0; i < pad; i++)
+            {
+                double time = 10 * i / (double)pointCount;
+                doubleSeries.Add(new XyPoint { X = time });
+            }
+
+            for (int i = pad, j = 0; i < pointCount; i++, j++)
+            {
+                var xyPoint = new XyPoint();
+
+                double time = 10 * i / (double)pointCount;
+                double wn = 2 * Math.PI / (pointCount / (double)freq);
+
+                xyPoint.X = time;
+                xyPoint.Y = amplitude * Math.Sin(j * wn + phase);
+                doubleSeries.Add(xyPoint);
+
+                amplitude *= 1.0 - dampingFactor;
             }
 
             return doubleSeries;
@@ -441,6 +283,72 @@ namespace CSharpUtils.MarketData
             return doubleSeries;
         }
 
+        public DoubleSeries GetFourierSeries(double amplitude, double phaseShift, int count = 5000)
+        {
+            var doubleSeries = new DoubleSeries();
+
+            for (int i = 0; i < count; i++)
+            {
+                var xyPoint = new XyPoint();
+
+                double time = 10 * i / (double)count;
+                double wn = 2 * Math.PI / (count / 10);
+
+                xyPoint.X = time;
+                xyPoint.Y = Math.PI *
+                            amplitude *
+                            (Math.Sin(i * wn + phaseShift) +
+                             0.33 * Math.Sin(i * 3 * wn + phaseShift) +
+                             0.20 * Math.Sin(i * 5 * wn + phaseShift) +
+                             0.14 * Math.Sin(i * 7 * wn + phaseShift) +
+                             0.11 * Math.Sin(i * 9 * wn + phaseShift) +
+                             0.09 * Math.Sin(i * 11 * wn + phaseShift));
+                doubleSeries.Add(xyPoint);
+            }
+
+            return doubleSeries;
+        }
+
+        public DoubleSeries GetFourierSeriesZoomed(double amplitude, double phaseShift, double xStart, double xEnd, int count = 5000)
+        {
+            DoubleSeries data = GetFourierSeries(amplitude, phaseShift, count);
+
+            int index0 = 0;
+            int index1 = 0;
+            for (int i = 0; i < count; i++)
+            {
+                if (data.XData[i] > xStart && index0 == 0)
+                    index0 = i;
+
+                if (data.XData[i] > xEnd && index1 == 0)
+                {
+                    index1 = i;
+                    break;
+                }
+            }
+
+            var result = new DoubleSeries();
+
+            double[] xData = data.XData.Skip(index0).Take(index1 - index0).ToArray();
+            double[] yData = data.YData.Skip(index0).Take(index1 - index0).ToArray();
+
+            for (int i = 0; i < xData.Length; i++)
+                result.Add(new XyPoint { X = xData[i], Y = yData[i] });
+
+            return result;
+        }
+
+        public double GetGaussianRandomNumber(double mean, double stdDev)
+        {
+            double u1 = _random.NextDouble(); //these are uniform(0,1) random doubles
+            double u2 = _random.NextDouble();
+            double randStdNormal = Math.Sqrt(-2.0 * Math.Log(u1)) *
+                                   Math.Sin(2.0 * Math.PI * u2); //random normal(0,1)
+            double randNormal =
+                mean + stdDev * randStdNormal; //random normal(mean,stdDev^2)
+            return randNormal;
+        }
+
         public DoubleSeries GetLissajousCurve(double alpha, double beta, double delta, int count = 200)
         {
             // From http://en.wikipedia.org/wiki/Lissajous_curve
@@ -455,32 +363,70 @@ namespace CSharpUtils.MarketData
             return doubleSeries;
         }
 
-        public DoubleSeries GetButterflyCurve(int count = 2000)
+        public DoubleSeries GetNoisySinewave(double amplitude, double phase, int pointCount, double noiseAmplitude)
         {
-            // From http://en.wikipedia.org/wiki/Butterfly_curve_%28transcendental%29
-            // x = sin(t) * (e^cos(t) - 2cos(4t) - sin^5(t/12))
-            // y = cos(t) * (e^cos(t) - 2cos(4t) - sin^5(t/12))
-            var temp = 0.01;
-            var doubleSeries = new DoubleSeries(count);
-            for (int i = 0; i < count; i++)
-            {
-                var t = i * temp;
+            DoubleSeries sinewave = GetSinewave(amplitude, phase, pointCount);
 
-                double multiplier = Math.Pow(Math.E, Math.Cos(t)) - 2 * Math.Cos(4 * t) - Math.Pow(Math.Sin(t / 12), 5);
+            // Add some noise
+            for (int i = 0; i < pointCount; i++)
+                sinewave[i].Y += _random.NextDouble() * noiseAmplitude - noiseAmplitude * 0.5;
 
-                double x = Math.Sin(t) * multiplier;
-                double y = Math.Cos(t) * multiplier;
-                doubleSeries.Add(new XyPoint { X = x, Y = y });
-            }
-            return doubleSeries;
+            return sinewave;
         }
 
-        public IEnumerable<double> Offset(IList<double> inputList, double offset)
+        public PriceSeries GetPriceData(string symbol, TimeFrame timeFrame)
         {
-            foreach (double value in inputList)
+            return GetPriceData($"{symbol}_{timeFrame}");
+        }
+        public PriceSeries GetPriceData(string dataset)
+        {
+            if (_dataSets.ContainsKey(dataset))
+                return _dataSets[dataset];
+
+            // e.g. resource format: Abt.Controls.SciChart.Example.Resources.EURUSD_Daily.csv
+            string csvResource = $"{ResourceDirectory}.{Path.ChangeExtension(dataset, "csv")}";
+
+            var priceSeries = new PriceSeries
             {
-                yield return value + offset;
+                Symbol = dataset
+            };
+
+            Assembly assembly = typeof(DataManager).Assembly;
+            // Debug.WriteLine(string.Join(", ", assembly.GetManifestResourceNames()));
+            using (Stream stream = assembly.GetManifestResourceStream(csvResource))
+            {
+                Debug.Assert(stream != null, "stream != null");
+                using (var streamReader = new StreamReader(stream))
+                {
+                    string line = streamReader.ReadLine();
+                    while (line != null)
+                    {
+                        var priceBar = new PriceBar();
+                        // Line Format:
+                        // Date, Open, High, Low, Close, Volume
+                        // 2007.07.02 03:30, 1.35310, 1.35310, 1.35280, 1.35310, 12
+                        string[] tokens = line.Split(',');
+                        priceBar.DateTime = DateTime.Parse(tokens[0], DateTimeFormatInfo.InvariantInfo);
+                        priceBar.Open = double.Parse(tokens[1], NumberFormatInfo.InvariantInfo);
+                        priceBar.High = double.Parse(tokens[2], NumberFormatInfo.InvariantInfo);
+                        priceBar.Low = double.Parse(tokens[3], NumberFormatInfo.InvariantInfo);
+                        priceBar.Close = double.Parse(tokens[4], NumberFormatInfo.InvariantInfo);
+                        priceBar.Volume = long.Parse(tokens[5], NumberFormatInfo.InvariantInfo);
+                        priceSeries.Add(priceBar);
+
+                        line = streamReader.ReadLine();
+                    }
+                }
             }
+
+            _dataSets.Add(dataset, priceSeries);
+
+            return priceSeries;
+        }
+
+        public Color GetRandomColor()
+        {
+            return Color.FromArgb(0xFF, (byte)_random.Next(255), (byte)_random.Next(255), (byte)_random.Next(255));
         }
 
         public DoubleSeries GetRandomDoubleSeries(int pointCount)
@@ -491,16 +437,9 @@ namespace CSharpUtils.MarketData
             double offset = _random.NextDouble() - 0.5;
 
             for (int i = 0; i < pointCount; i++)
-            {
                 doubleSeries.Add(new XyPoint { X = i, Y = offset + amplitude * Math.Sin(freq * i) });
-            }
 
             return doubleSeries;
-        }
-
-        public Color GetRandomColor()
-        {
-            return Color.FromArgb(0xFF, (byte)_random.Next(255), (byte)_random.Next(255), (byte)_random.Next(255));
         }
 
         public PriceSeries GetRandomTrades(out List<Trade> trades, out List<NewsEvent> news)
@@ -520,7 +459,7 @@ namespace CSharpUtils.MarketData
             // Generate the X,Y data with sequential dates on the X-Axis and slightly positively biased random walk on the Y-Axis
             for (int i = 0; i < COUNT; i++)
             {
-                randomWalk += (_random.NextDouble() - 0.498);
+                randomWalk += _random.NextDouble() - 0.498;
                 priceSeries.Add(new PriceBar(startDate.AddMinutes(i * 10), randomWalk, randomWalk, randomWalk, randomWalk, 0));
             }
 
@@ -538,7 +477,6 @@ namespace CSharpUtils.MarketData
                 {
                     var trade = new Trade
                     {
-
                         // randomize buy or sell
                         BuySell = _random.NextDouble() > 0.48 ? BuySell.Buy : BuySell.Sell,
 
@@ -558,10 +496,10 @@ namespace CSharpUtils.MarketData
                 {
                     var newsEvent = new NewsEvent
                     {
-
                         EventDate = priceSeries[i].DateTime,
                         Headline = "OPEC meeting minutes",
-                        Body = "The Organization of the Petroleum Exporting Countries voted today to increase production of Crude oil from its member states"
+                        Body =
+                            "The Organization of the Petroleum Exporting Countries voted today to increase production of Crude oil from its member states"
                     };
 
                     news.Add(newsEvent);
@@ -571,34 +509,66 @@ namespace CSharpUtils.MarketData
             return priceSeries;
         }
 
-        public DoubleSeries GenerateSpiral(double xCentre, double yCentre, double maxRadius, int count)
+        public DoubleSeries GetSinewave(double amplitude, double phase, int pointCount, int freq = 10)
+        {
+            return GetDampedSinewave(0, amplitude, phase, 0.0, pointCount, freq);
+        }
+        public DoubleSeries GetSquirlyWave()
         {
             var doubleSeries = new DoubleSeries();
-            double radius = 0;
-            double x, y;
-            double deltaRadius = maxRadius / count;
-            for (int i = 0; i < count; i++)
+            var rand = new Random((int)DateTime.Now.Ticks);
+
+            const int COUNT = 1000;
+            for (int i = 0; i < COUNT; i++)
             {
-                double sinX = Math.Sin(2 * Math.PI * i * 0.05);
-                double cosX = Math.Cos(2 * Math.PI * i * 0.05);
-                x = xCentre + radius * sinX;
-                y = yCentre + radius * cosX;
-                doubleSeries.Add(new XyPoint { X = x, Y = y });
-                radius += deltaRadius;
+                var xyPoint = new XyPoint();
+
+                double time = i / (double)COUNT;
+                xyPoint.X = time;
+                xyPoint.Y = time * Math.Sin(2 * Math.PI * i / COUNT) +
+                            0.2 * Math.Sin(2 * Math.PI * i / (COUNT / 7.9)) +
+                            0.05 * (rand.NextDouble() - 0.5) +
+                            1.0;
+
+                doubleSeries.Add(xyPoint);
             }
+
+            return doubleSeries;
+        }
+        public DoubleSeries GetStraightLine(double gradient, double yIntercept, int pointCount)
+        {
+            var doubleSeries = new DoubleSeries(pointCount);
+
+            for (int i = 0; i <= pointCount; i++)
+            {
+                double x = i + 1;
+                double y = gradient * x + yIntercept;
+                doubleSeries.Add(new XyPoint { X = x, Y = y });
+            }
+
             return doubleSeries;
         }
 
-        public DoubleSeries GetClusteredPoints(double xCentre, double yCentre, double deviation, int count)
+        public IEnumerable<double> Offset(IList<double> inputList, double offset)
         {
-            var doubleSeries = new DoubleSeries();
-            for (int i = 0; i < count; i++)
-            {
-                double x = GetGaussianRandomNumber(xCentre, deviation);
-                double y = GetGaussianRandomNumber(yCentre, deviation);
-                doubleSeries.Add(new XyPoint { X = x, Y = y });
-            }
-            return doubleSeries;
+            foreach (double value in inputList)
+                yield return value + offset;
+        }
+
+        private static double AverageOf(IList<double> prices, int from, int to)
+        {
+            double result = 0.0;
+            for (int i = from; i < to; i++)
+                result += prices[i];
+
+            return result / (to - from);
+        }
+
+        private string GetSubstring(string input, string before, string after)
+        {
+            int beforeIndex = string.IsNullOrEmpty(before) ? 0 : input.IndexOf(before) + before.Length;
+            int afterIndex = string.IsNullOrEmpty(after) ? input.Length : input.IndexOf(after) - beforeIndex;
+            return input.Substring(beforeIndex, afterIndex);
         }
     }
 }

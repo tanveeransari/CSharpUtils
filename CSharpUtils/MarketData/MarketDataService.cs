@@ -1,58 +1,47 @@
 ﻿using System;
 using System.Collections.Generic;
-// ReSharper disable PrivateFieldCanBeConvertedToLocalVariable
 
 namespace CSharpUtils.MarketData
 {
     public class MarketDataService : IMarketDataService
     {
-        private readonly RandomPricesDataSource _generator;
-        private readonly DateTime _startDate;
-        private readonly int _tickTimerIntervalms;
-        private readonly int _timeFrameMinutes;
+        private readonly RandomPriceQuotesDataSource _generator;
 
-        public MarketDataService(DateTime startDate, int timeFrameMinutes, int tickTimerIntervalms)
+        public MarketDataService(DateTime startDate, int timeFramMs, int tickTimerIntervalms, double startingPx)
         {
-            _startDate = startDate;
-            _timeFrameMinutes = timeFrameMinutes;
-            _tickTimerIntervalms = tickTimerIntervalms;
-            _generator = new RandomPricesDataSource(_timeFrameMinutes, true, _tickTimerIntervalms, 25, 367367, 30, _startDate);
+            if (tickTimerIntervalms > timeFramMs)
+                throw new ArgumentException("timer interval must be shorter than timeFrame", nameof(tickTimerIntervalms));
+
+            _generator = new RandomPriceQuotesDataSource(timeFramMs, true, tickTimerIntervalms, 25, 367367, startingPx, startDate);
         }
 
         public void ClearSubscriptions()
         {
-            if (_generator.IsRunning)
-            {
-                _generator.StopGeneratePriceBars();
-                _generator.ClearEventHandlers();
-            }
+            if (!_generator.IsRunning) return;
+            _generator.StopGeneratePriceBars();
+            _generator.ClearEventHandlers();
         }
 
-        public IEnumerable<PriceBar> GetHistoricalData(int numberBars)
+        public IEnumerable<IPriceQuote> GetHistoricalData(int numberOfPrices)
         {
-            List<PriceBar> prices = new List<PriceBar>(numberBars);
-            for (int i = 0; i < numberBars; i++)
-            {
+            List<PriceQuote> prices = new List<PriceQuote>(numberOfPrices);
+            for (int i = 0; i < numberOfPrices; i++)
                 prices.Add(_generator.GetNextData());
-            }
 
             return prices;
         }
 
-        public PriceBar GetNextBar()
+        public IPriceQuote GetNextBar()
         {
             return _generator.Tick();
         }
 
-        public void SubscribePriceUpdate(Action<PriceBar> callback)
+        public void SubscribePriceUpdate(Action<IPriceQuote> callback)
         {
-            if (!_generator.IsRunning)
-            {
-                _generator.NewData += (arg) => callback?.Invoke(arg);
-                _generator.UpdateData += (arg) => callback?.Invoke(arg);
+            if (_generator.IsRunning) return;
 
-                _generator.StartGeneratePriceBars();
-            }
+            _generator.NewData += arg => callback?.Invoke(arg);
+            _generator.StartGeneratePriceBars();
         }
     }
 }

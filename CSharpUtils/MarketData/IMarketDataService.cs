@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace CSharpUtils.MarketData
@@ -7,10 +7,10 @@ namespace CSharpUtils.MarketData
     {
         void ClearSubscriptions();
 
-        IEnumerable<PriceBar> GetHistoricalData(int numberBars);
+        IEnumerable<IPriceQuote> GetHistoricalData(int numberOfPrices);
 
-        PriceBar GetNextBar();
+        IPriceQuote GetNextBar();
 
-        void SubscribePriceUpdate(Action<PriceBar> callback);
+        void SubscribePriceUpdate(Action<IPriceQuote> callback);
     }
 }

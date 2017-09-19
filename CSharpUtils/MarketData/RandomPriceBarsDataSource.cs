@@ -3,7 +3,7 @@ using System.Timers;
 
 namespace CSharpUtils.MarketData
 {
-    public class RandomPricesDataSource
+    public class RandomPriceBarsDataSource
     {
         private sealed class PriceBarInfo
         {
@@ -28,7 +28,7 @@ namespace CSharpUtils.MarketData
 
         public event OnUpdateData UpdateData;
 
-        public RandomPricesDataSource(
+        public RandomPriceBarsDataSource(
             int candleIntervalMinutes,
             bool simulateDateGap,
             double timerInterval,

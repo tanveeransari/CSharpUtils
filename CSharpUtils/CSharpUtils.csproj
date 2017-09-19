@@ -48,13 +48,19 @@
     <Compile Include="MarketData\Common.cs" />
     <Compile Include="MarketData\DataManager.cs" />
     <Compile Include="MarketData\DoubleSeries.cs" />
+    <Compile Include="MarketData\IMarketDataBarsService.cs" />
     <Compile Include="MarketData\IMarketDataService.cs" />
     <Compile Include="MarketData\IPriceDataService.cs" />
+    <Compile Include="MarketData\IPriceQuote.cs" />
+    <Compile Include="MarketData\MarketDataBarsService.cs" />
     <Compile Include="MarketData\MarketDataService.cs" />
+    <Compile Include="MarketData\PriceAndTradeQuote.cs" />
     <Compile Include="MarketData\PriceBar.cs" />
+    <Compile Include="MarketData\PriceQuote.cs" />
     <Compile Include="MarketData\PriceSeries.cs" />
+    <Compile Include="MarketData\RandomPriceQuotesDataSource.cs" />
     <Compile Include="MarketData\XYPoint.cs" />
-    <Compile Include="MarketData\RandomPricesDataSource.cs" />
+    <Compile Include="MarketData\RandomPriceBarsDataSource.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
